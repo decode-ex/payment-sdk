@@ -8,11 +8,35 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	httptransport "github.com/decode-ex/payment-sdk/internal/http_transport"
 )
+
+const (
+	_DEV_BASE_URL  = "https://test.ddtpay.org/"
+	_PROD_BASE_URL = "https://ddtpay.org/"
+)
+
+type Env int
+
+const (
+	EnvDev Env = iota
+	EnvProd
+)
+
+func (e Env) baseURL() string {
+	switch e {
+	case EnvDev:
+		return _DEV_BASE_URL
+	case EnvProd:
+		return _PROD_BASE_URL
+	default:
+		return _DEV_BASE_URL
+	}
+}
 
 type Client struct {
 	http   *http.Client
@@ -20,36 +44,21 @@ type Client struct {
 }
 
 type Config struct {
-	BaseURL    string
 	AccessKey  string
 	PrivateKey []byte
 
 	CallbackURL string
 }
 
-type transport struct {
-	inner   http.RoundTripper
-	baseURL *url.URL
-}
-
-func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	uri := t.baseURL.ResolveReference(req.URL)
-	req.URL = uri
-	return t.inner.RoundTrip(req)
-}
-
-func NewClient(conf Config) (*Client, error) {
-	base, err := url.Parse(conf.BaseURL)
+func NewClient(env Env, conf Config) (*Client, error) {
+	transport, err := httptransport.NewTransport(env.baseURL())
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
 		http: &http.Client{
-			Transport: &transport{
-				inner:   http.DefaultTransport,
-				baseURL: base,
-			},
+			Transport: transport,
 		},
 		config: &conf,
 	}, nil

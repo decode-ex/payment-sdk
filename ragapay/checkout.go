@@ -13,7 +13,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/decode-ex/payment-sdk/utils/strings2"
+	"github.com/decode-ex/payment-sdk/internal/strings2"
 )
 
 type Operation = string

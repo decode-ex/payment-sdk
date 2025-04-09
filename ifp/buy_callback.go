@@ -206,16 +206,23 @@ func (req *BuyCallbackRequest) VerifySignature(conf *Config) error {
 	return fmt.Errorf("invalid signature, expect %s, got %s", signature, req.payload.Signature)
 }
 
-func (req *BuyCallbackRequest) GenerateReply() *BuyCallbackReply {
-	return &BuyCallbackReply{}
-}
-
 func (req *BuyCallbackRequest) IsSuccess() bool {
 	return req.payload.IsSuccess()
 }
 
 type BuyCallbackReply struct{}
 
-func (reply *BuyCallbackReply) Encode() string {
+func (req *BuyCallbackRequest) GenerateReply() *BuyCallbackReply {
+	return &BuyCallbackReply{}
+}
+
+func (reply *BuyCallbackReply) encode() string {
 	return `{"success":true}`
+}
+
+func (reply *BuyCallbackReply) WriteTo(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, err := w.Write([]byte(reply.encode()))
+	return err
 }
