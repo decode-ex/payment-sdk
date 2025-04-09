@@ -5,19 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
+
+	httptransport "github.com/decode-ex/payment-sdk/internal/http_transport"
 )
 
-type transport struct {
-	inner   http.RoundTripper
-	baseURL *url.URL
-}
-
-func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	uri := t.baseURL.ResolveReference(req.URL)
-	req.URL = uri
-	return t.inner.RoundTrip(req)
-}
+const (
+	_BASE_URL = "https://vi.long77.net/"
+)
 
 type Client struct {
 	http   *http.Client
@@ -25,8 +19,6 @@ type Client struct {
 }
 
 type Config struct {
-	BaseURL string // long77 base url
-
 	NotifyURL string // Callback url
 	ReturnURL string // Success url
 
@@ -35,17 +27,14 @@ type Config struct {
 }
 
 func NewClient(conf Config) (*Client, error) {
-	base, err := url.Parse(conf.BaseURL)
+	transport, err := httptransport.NewTransport(_BASE_URL)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
 		http: &http.Client{
-			Transport: &transport{
-				inner:   http.DefaultTransport,
-				baseURL: base,
-			},
+			Transport: transport,
 		},
 		config: &conf,
 	}, nil
@@ -75,5 +64,5 @@ func (c *Client) CreatePayInURL(ctx context.Context, in *PayInRequest) (*PayInRe
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, err
 	}
-	return out.toResponse()
+	return PayInResponse{}.fromRaw(&out)
 }

@@ -183,3 +183,15 @@ func (req *PayInCallbackRequest) VerifySignature(conf *Config) error {
 
 	return req.data.VerifySignature(conf.Secret, conf.Key)
 }
+
+type PayInCallbackReply struct{}
+
+func (req *PayInCallbackRequest) GenerateReply() *PayInCallbackReply {
+	return &PayInCallbackReply{}
+}
+
+func (reply *PayInCallbackReply) WriteTo(w http.ResponseWriter) error {
+	w.WriteHeader(http.StatusOK)
+	_, err := w.Write([]byte("success"))
+	return err
+}

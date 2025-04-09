@@ -15,7 +15,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/decode-ex/payment-sdk/utils/strings2"
+	"github.com/decode-ex/payment-sdk/internal/strings2"
 )
 
 var ErrInvalidAmount = errors.New("invalid amount")
@@ -155,8 +155,13 @@ type rawPayInResponse struct {
 		PaymentURL string `json:"payment_url"` // Payment URL from bank
 	} `json:"data"` // Return parameter set
 }
+type PayInResponse struct {
+	SupplierOrderCode string
+	PaymentID         string
+	PaymentURL        string
+}
 
-func (raw *rawPayInResponse) toResponse() (*PayInResponse, error) {
+func (PayInResponse) fromRaw(raw *rawPayInResponse) (*PayInResponse, error) {
 	if raw.Code != 200 {
 		return nil, fmt.Errorf("code: %d, message: %s", raw.Code, raw.Message)
 	}
@@ -167,13 +172,7 @@ func (raw *rawPayInResponse) toResponse() (*PayInResponse, error) {
 	}, nil
 }
 
-type PayInResponse struct {
-	SupplierOrderCode string
-	PaymentID         string
-	PaymentURL        string
-}
-
-type RawPaymentDetailResponse struct {
+type rawPaymentDetailResponse struct {
 	Code int    `json:"code"`
 	Msg  string `json:"msg"`
 	Data struct {

@@ -81,6 +81,17 @@ const (
 	IFPStatusCode_NoOrder IFPStatusCode = "NO_ORDER"
 )
 
+var (
+	ErrorTimestampError     = errors.New("timestamp error")
+	ErrorSignatureError     = errors.New("signature error")
+	ErrorAccesskeyError     = errors.New("access key error")
+	ErrorParameterError     = errors.New("parameter error")
+	ErrorNoAdvertisement    = errors.New("no advertisement")
+	ErrorAccountStatusError = errors.New("account status error")
+	ErrorSystemError        = errors.New("system error")
+	ErrorTradeCanceled      = errors.New("trade canceled")
+)
+
 type CurrencyCode = string
 
 const (
@@ -143,6 +154,38 @@ type BuyCoinReply struct {
 	RedirectURL string
 	// 此次交易所匹配的广告编码
 	AdvertisementCode string
+}
+
+func (BuyCoinReply) fromRaw(raw *rawBuyResponse) (*BuyCoinReply, error) {
+	if raw == nil {
+		return nil, fmt.Errorf("raw response is nil")
+	}
+	if !raw.IsSuccess() {
+		switch raw.StatusCode {
+		case IFPStatusCode_TimestampError:
+			return nil, ErrorTimestampError
+		case IFPStatusCode_SignatureError:
+			return nil, ErrorSignatureError
+		case IFPStatusCode_AccesskeyError:
+			return nil, ErrorAccesskeyError
+		case IFPStatusCode_ParameterError:
+			return nil, ErrorParameterError
+		case IFPStatusCode_NoAdvertisement:
+			return nil, ErrorNoAdvertisement
+		case IFPStatusCode_AccountStatusError:
+			return nil, ErrorAccountStatusError
+		case IFPStatusCode_SystemError:
+			return nil, ErrorSystemError
+		case IFPStatusCode_TradeCanceled:
+			return nil, ErrorTradeCanceled
+		default:
+			return nil, fmt.Errorf("unknown error: %s", raw.Message)
+		}
+	}
+	return &BuyCoinReply{
+		RedirectURL:       raw.Data.RedirectURL,
+		AdvertisementCode: raw.Data.AdvertisementCode,
+	}, nil
 }
 
 func (req *FiatBuyRequest) toRaw(conf *Config) *rawBuyRequest {
@@ -225,7 +268,7 @@ func (r *rawBuyRequest) GenerateSignedRequest(ctx context.Context, conf *Config)
 	return req, nil
 }
 
-type BuyResponseData struct {
+type rawBuyResponseData struct {
 	// 所需跳转的支付 URI
 	RedirectURL string `json:"redirectUrl"`
 	// 此次交易所匹配的广告编码
@@ -238,4 +281,4 @@ type BuyResponseData struct {
 	TRX string `json:"trx"`
 }
 
-type BuyResponse = IFPGenericResponse[BuyResponseData]
+type rawBuyResponse = IFPGenericResponse[rawBuyResponseData]

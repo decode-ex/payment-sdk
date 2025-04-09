@@ -5,14 +5,15 @@ import (
 	"net/url"
 )
 
+var (
+	_BASE_URL, _ = url.Parse("https://bo.transfer1515.com/")
+)
+
 type Client struct {
-	baseURL *url.URL
-	conf    *Config
+	conf *Config
 }
 
 type Config struct {
-	// xpay base url
-	BaseURL string
 	// webhook callback url
 	CallbackURL string
 	// success redirect url
@@ -24,14 +25,8 @@ type Config struct {
 }
 
 func NewClient(conf Config) (*Client, error) {
-	base, err := url.Parse(conf.BaseURL)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Client{
-		baseURL: base,
-		conf:    &conf,
+		conf: &conf,
 	}, nil
 }
 
@@ -45,7 +40,7 @@ func (cli *Client) CreateFundInURL(ctx context.Context, req *FundInRequest) (str
 		return "", err
 	}
 
-	url := cli.baseURL.ResolveReference(fundInReq.URL)
+	url := _BASE_URL.ResolveReference(fundInReq.URL)
 	url.RawQuery = fundInReq.URL.RawQuery
 	url.RawFragment = fundInReq.URL.RawFragment
 	return url.String(), nil

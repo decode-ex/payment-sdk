@@ -5,16 +5,40 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
+
+	httptransport "github.com/decode-ex/payment-sdk/internal/http_transport"
 )
+
+const (
+	_DEV_BASE_URL  = "https://demo-transfer.peska.co/"
+	_PROD_BASE_URL = "https://transfer.peska.co/"
+)
+
+type Env int
+
+const (
+	EnvDev Env = iota
+	EnvProd
+)
+
+func (e Env) baseURL() string {
+	switch e {
+	case EnvDev:
+		return _DEV_BASE_URL
+	case EnvProd:
+		return _PROD_BASE_URL
+	default:
+		return _DEV_BASE_URL
+	}
+}
 
 type Client struct {
 	http *http.Client
 	conf *Config
+	env  Env
 }
 
 type Config struct {
-	BaseURL       string
 	CallbackURL   string
 	SuccessURL    string
 	MerchantEmail string
@@ -23,44 +47,36 @@ type Config struct {
 	Key    string
 }
 
-type transport struct {
-	inner   http.RoundTripper
-	baseURL *url.URL
-}
-
-func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	uri := t.baseURL.ResolveReference(req.URL)
-	req.URL = uri
-
-	req.Header.Add("Referer", t.baseURL.String())
-	return t.inner.RoundTrip(req)
-}
-
-func NewClient(conf Config) (*Client, error) {
-	base, err := url.Parse(conf.BaseURL)
+func NewClient(env Env, conf Config) (*Client, error) {
+	transport, err := httptransport.NewTransport(env.baseURL())
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
 		http: &http.Client{
-			Transport: &transport{
-				inner:   http.DefaultTransport,
-				baseURL: base,
-			},
+			Transport: transport,
 		},
 		conf: &conf,
+		env:  env,
 	}, nil
+}
+
+func NewDevClient(conf Config) (*Client, error) {
+	return NewClient(EnvDev, conf)
+}
+
+func NewProdClient(conf Config) (*Client, error) {
+	return NewClient(EnvProd, conf)
 }
 
 func (cli *Client) CreatePayInURL(ctx context.Context, payload *PayInRequest) (*PayInReply, error) {
 	raw := payload.toRaw(cli.conf)
-	req, err := raw.GenerateSignedRequest(cli.conf)
+	req, err := raw.GenerateSignedRequest(ctx, cli.env, cli.conf)
 	if err != nil {
 		return nil, fmt.Errorf("generate signed request failed: %w", err)
 	}
 
-	req = req.WithContext(ctx)
 	resp, err := cli.http.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("send request failed: %w", err)
@@ -71,10 +87,7 @@ func (cli *Client) CreatePayInURL(ctx context.Context, payload *PayInRequest) (*
 	if err := json.NewDecoder(resp.Body).Decode(&reply); err != nil {
 		return nil, fmt.Errorf("decode response failed: %w", err)
 	}
-	if err = reply.GetError(); err != nil {
-		return nil, err
-	}
-	return &PayInReply{data: reply.GetData()}, nil
+	return PayInReply{}.fromRaw(&reply)
 }
 
 func (cli *Client) QueryPayIn(ctx context.Context, payload *GetPayInRecordPayload) (*PayInRecord, error) {

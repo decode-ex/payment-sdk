@@ -14,7 +14,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/decode-ex/payment-sdk/utils/strings2"
+	"github.com/decode-ex/payment-sdk/internal/strings2"
 )
 
 var ErrInvalidSign = errors.New("invalid sign")
@@ -273,4 +273,16 @@ func (req *CallbackRequest) VerifySignature(conf *Config) error {
 	}
 
 	return req.data.VerifySignature(conf.PublicID, conf.Password)
+}
+
+type CallbackReply struct{}
+
+func (req *CallbackRequest) GenerateReply() *CallbackReply {
+	return &CallbackReply{}
+}
+
+func (reply *CallbackReply) WriteTo(w http.ResponseWriter) error {
+	w.WriteHeader(http.StatusOK)
+	_, err := w.Write([]byte("success"))
+	return err
 }

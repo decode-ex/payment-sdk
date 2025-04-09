@@ -2,6 +2,7 @@ package peska
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -25,7 +26,7 @@ const (
 )
 
 type payload interface {
-	Path() string
+	SignPath() string
 	Method() string
 	GetOrderNo() string
 	GetMerchantEmail() string
@@ -41,7 +42,7 @@ func (signer) Sign(secret []byte, key string, payload payload) (string, string) 
 	formater := strings.NewReplacer(
 		"{ts}", ts,
 		"{method}", payload.Method(),
-		"{path}", payload.Path(),
+		"{path}", payload.SignPath(),
 		"{order_no}", payload.GetOrderNo(),
 		"{merchant_email}", payload.GetMerchantEmail(),
 		"{transfer_currency}", string(payload.GetTransferCurrency()),
@@ -101,6 +102,10 @@ type rawPayInPayload struct {
 }
 
 func (rawPayInPayload) Path() string {
+	return "/api/v1/merchant/transfer"
+}
+
+func (rawPayInPayload) SignPath() string {
 	return "/v1/merchant/transfer"
 }
 
@@ -118,21 +123,19 @@ func (p *rawPayInPayload) GetTransferCurrency() PayInCurrency {
 	return p.TransferCurrency
 }
 
-func (p *rawPayInPayload) GenerateSignedRequest(conf *Config) (*http.Request, error) {
+func (p *rawPayInPayload) GenerateSignedRequest(ctx context.Context, env Env, conf *Config) (*http.Request, error) {
 	body := bytes.NewBuffer(nil)
 	if err := json.NewEncoder(body).Encode(p); err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest(p.Method(), p.Path(), body)
+	req, err := http.NewRequestWithContext(ctx, p.Method(), p.Path(), body)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("AX-AUTHORIZE", conf.Key)
-	// if p.ReferrerURL != "" {
-	// 	req.Header.Set("Referer", p.ReferrerURL)
-	// }
+	req.Header.Set("Referer", env.baseURL())
 	ts, signature := signer{}.Sign(conf.Secret, conf.Key, p)
 	req.Header.Set("AX-TIMESTAMP", ts)
 	req.Header.Set("AX-SIGNATURE", signature)
@@ -256,6 +259,15 @@ func (reply *PayInReply) TradeURL() string {
 	return reply.data.TradeURL
 }
 
+func (PayInReply) fromRaw(raw *rawResponseBody[PayInResponseData]) (*PayInReply, error) {
+	if err := raw.GetError(); err != nil {
+		return nil, err
+	}
+	return &PayInReply{
+		data: raw.GetData(),
+	}, nil
+}
+
 type PayInResponseData struct {
 	OrderNo                 string          `json:"order_no"`                  // Order No. specified by the merchant
 	MerchantEmail           string          `json:"merchant_email"`            // Merchant’s email
@@ -287,8 +299,11 @@ type rawGetPayInRecordPayload struct {
 	TransferCurrency PayInCurrency `json:"transfer_currency"`
 }
 
-func (rawGetPayInRecordPayload) Path() string {
+func (rawGetPayInRecordPayload) SignPath() string {
 	return "/v1/merchant/query"
+}
+func (rawGetPayInRecordPayload) Path() string {
+	return "/api/v1/merchant/query"
 }
 
 func (rawGetPayInRecordPayload) Method() string {
