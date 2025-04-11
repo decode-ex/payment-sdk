@@ -58,6 +58,14 @@ func NewClient(env Env, conf Config) (*Client, error) {
 	}, nil
 }
 
+func NewDevClient(conf Config) (*Client, error) {
+	return NewClient(EnvDev, conf)
+}
+
+func NewProdClient(conf Config) (*Client, error) {
+	return NewClient(EnvProd, conf)
+}
+
 func (cli *Client) Checkout(ctx context.Context, req *CheckoutRequest) (*CheckoutReply, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err

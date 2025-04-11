@@ -104,6 +104,14 @@ func NewClient(env Env, config Config) (*Client, error) {
 	}, nil
 }
 
+func NewDevClient(conf Config) (*Client, error) {
+	return NewClient(EnvDev, conf)
+}
+
+func NewProdClient(conf Config) (*Client, error) {
+	return NewClient(EnvProd, conf)
+}
+
 type BuyCoinRequest struct {
 	MerchantOrderID string
 

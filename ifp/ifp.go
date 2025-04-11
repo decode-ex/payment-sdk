@@ -64,6 +64,14 @@ func NewClient(env Env, conf Config) (*Client, error) {
 	}, nil
 }
 
+func NewDevClient(conf Config) (*Client, error) {
+	return NewClient(EnvDev, conf)
+}
+
+func NewProdClient(conf Config) (*Client, error) {
+	return NewClient(EnvProd, conf)
+}
+
 // 买入指定金额
 func (cli *Client) BuyWithAmount(ctx context.Context, req *FiatBuyRequest) (*BuyCoinReply, error) {
 	if err := req.Validate(); err != nil {
