@@ -11,7 +11,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/decode-ex/payment-sdk/utils/strings2"
+	"github.com/decode-ex/payment-sdk/internal/strings2"
 )
 
 var ErrInvalidSign = errors.New("invalid sign")
@@ -154,4 +154,16 @@ func ParsePayInCallbackRequest(req *http.Request) (*PayInCallbackRequest, error)
 		return nil, err
 	}
 	return &payload, nil
+}
+
+type PayInCallbackReply struct{}
+
+func (req *PayInCallbackRequest) GenerateReply() *PayInCallbackReply {
+	return &PayInCallbackReply{}
+}
+
+func (reply *PayInCallbackReply) WriteTo(w http.ResponseWriter) error {
+	w.WriteHeader(http.StatusOK)
+	_, err := w.Write([]byte("success"))
+	return err
 }

@@ -10,7 +10,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/decode-ex/payment-sdk/utils/strings2"
+	"github.com/decode-ex/payment-sdk/internal/strings2"
 )
 
 type Status = string
@@ -189,13 +189,6 @@ func (data *rawFundInCallbackPayloadData) Decode(query string) error {
 	return nil
 }
 
-func (payload *rawFundInCallbackPayload) GenerateReply() *FundInCallbackReply {
-	return &FundInCallbackReply{
-		transID:       payload.Data.TransactionID,
-		validationKey: payload.Data.ValidationKey,
-	}
-}
-
 func (payload *rawFundInCallbackPayload) IsSuccess() bool {
 	return payload.Data.Status == StatusSuccess || payload.Data.Status == StatusBankPaymentSucess
 }
@@ -239,10 +232,6 @@ func (req *FundInCallbackRequest) IsSuccess() bool {
 	return req.raw.IsSuccess()
 }
 
-func (req *FundInCallbackRequest) GenerateReply() *FundInCallbackReply {
-	return req.raw.GenerateReply()
-}
-
 func ParseFundInCallbackRequest(req *http.Request) (*FundInCallbackRequest, error) {
 	// if req.Method != http.MethodGet{
 	// 	return nil, fmt.Errorf("invalid method: %s", req.Method)
@@ -259,16 +248,25 @@ func ParseFundInCallbackRequest(req *http.Request) (*FundInCallbackRequest, erro
 
 type FundInCallbackReply struct {
 	// Transaction ID in Xpay system.
-	transID string `json:"TransID"`
+	TransID string
 	// Verification key that need to supply for Xpay digital signature verification
-	validationKey string `json:"ValidationKey"`
-
-	enc string
+	ValidationKey string
 }
 
-func (reply *FundInCallbackReply) Encode() string {
-	if reply.enc == "" {
-		reply.enc = fmt.Sprintf("%s||%s", reply.transID, reply.validationKey)
+func (req *FundInCallbackRequest) GenerateReply() *FundInCallbackReply {
+	return &FundInCallbackReply{
+		TransID:       req.raw.Data.TransactionID,
+		ValidationKey: req.raw.Data.ValidationKey,
 	}
-	return reply.enc
+}
+
+func (reply *FundInCallbackReply) encode() string {
+	return fmt.Sprintf("%s||%s", reply.TransID, reply.ValidationKey)
+}
+
+func (reply *FundInCallbackReply) WriteTo(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
+	_, err := w.Write([]byte(reply.encode()))
+	return err
 }

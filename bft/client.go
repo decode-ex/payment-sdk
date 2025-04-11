@@ -1,4 +1,4 @@
-package long77
+package bft
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	_DEV_BASE_URL  = "https://test.ddtpay.org/"
-	_PROD_BASE_URL = "https://ddtpay.org/"
+	_DEV_BASE_URL  = "https://api.maxpay666.com"
+	_PROD_BASE_URL = "https://api.exlinked.com"
 )
 
 type Env int
@@ -32,17 +32,16 @@ func (e Env) baseURL() string {
 	}
 }
 
+type Config struct {
+	MerchantID     string
+	DefaultPayType PayType
+	PublicKey      string
+	PrivateKey     string
+}
+
 type Client struct {
 	http   *http.Client
 	config *Config
-}
-
-type Config struct {
-	NotifyURL string // Callback url
-	ReturnURL string // Success url
-
-	PartnerID string //
-	Secret    string //
 }
 
 func NewClient(env Env, conf Config) (*Client, error) {
@@ -59,17 +58,16 @@ func NewClient(env Env, conf Config) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) CreatePayInURL(ctx context.Context, in *PayInRequest) (*PayInResponse, error) {
-	raw, err := in.toRaw(c.config)
+func (cli *Client) CheckoutOut(ctx context.Context, req *CheckoutRequest) (*CheckoutReply, error) {
+	if err := req.Validate(); err != nil {
+		return nil, err
+	}
+	raw := req.toRaw(cli.config)
+	reqBody, err := raw.GenerateSignedRequest(ctx, cli.config)
 	if err != nil {
 		return nil, err
 	}
-	req, err := raw.GenerateSignedRequest(c.config)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	resp, err := c.http.Do(req)
+	resp, err := cli.http.Do(reqBody)
 	if err != nil {
 		return nil, err
 	}
@@ -79,9 +77,10 @@ func (c *Client) CreatePayInURL(ctx context.Context, in *PayInRequest) (*PayInRe
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
-	var out rawPayInResponse
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	reply := raw.Reply()
+	if err := json.NewDecoder(resp.Body).Decode(reply); err != nil {
 		return nil, err
 	}
-	return out.toResponse()
+
+	return CheckoutReply{}.fromRaw(reply)
 }

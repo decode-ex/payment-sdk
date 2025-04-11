@@ -5,7 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
+
+	httptransport "github.com/decode-ex/payment-sdk/internal/http_transport"
+)
+
+const (
+	_BASE_URL = "https://checkout.ragapay.com"
 )
 
 type Client struct {
@@ -15,37 +20,21 @@ type Client struct {
 }
 
 type Config struct {
-	BaseURL    string
 	SuccessURL string
 
 	PublicID string
 	Password string
 }
 
-type transport struct {
-	inner   http.RoundTripper
-	baseURL *url.URL
-}
-
-func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
-	uri := t.baseURL.ResolveReference(req.URL)
-	req.URL = uri
-
-	return t.inner.RoundTrip(req)
-}
-
 func NewClient(conf Config) (*Client, error) {
-	base, err := url.Parse(conf.BaseURL)
+	transport, err := httptransport.NewTransport(_BASE_URL)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
 		http: &http.Client{
-			Transport: &transport{
-				inner:   http.DefaultTransport,
-				baseURL: base,
-			},
+			Transport: transport,
 		},
 		conf: &conf,
 	}, nil
