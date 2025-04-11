@@ -6,12 +6,8 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
-	"fmt"
 	"net/http"
 	"strings"
-
-	"github.com/shopspring/decimal"
 
 	"github.com/decode-ex/payment-sdk/internal/strings2"
 )
@@ -94,38 +90,24 @@ type rawCheckoutPayload struct {
 	// Special signature to validate your request to Payment Platform Addition in Signature section.
 	Hash string `json:"hash"`
 	// Information about an order
-	Order CheckoutOrder `json:"order"`
+	Order rawOrder `json:"order"`
 	// Customer's information
-	Customer *CheckoutCustomer `json:"customer,omitempty"`
+	Customer *rawUserInfo `json:"customer,omitempty"`
 	// Billing address information.
 	// Condition: If the object or some object's parameters are NOT specified in the request, then it will be displayed on the Checkout page (if a payment method needs)
-	BillAddress *CheckoutBillingAddress `json:"bill_address,omitempty"`
+	BillAddress *rawBillingAddress `json:"bill_address,omitempty"`
 	// Payee's information.
 	// Specify additional information about Payee for transfer operation if it is required by payment provider.
-	Payee *CheckoutPayee `json:"payee,omitempty"`
+	Payee *rawUserInfo `json:"payee,omitempty"`
 	// Billing address information for Payee.
-	PayeeBillingAddress *CheckoutPayeeBillingAddress `json:"payee_bill_address,omitempty"`
+	PayeeBillingAddress *rawBillingAddress `json:"payee_bill_address,omitempty"`
 	// Additional information regarding crypto transactions
-	Crypto *CheckoutCrypto `json:"crypto,omitempty"`
+	Crypto *rawCryptoInfo `json:"crypto,omitempty"`
 	// Extra-parameters required for specific payment method
 	Parameters map[string]any `json:"parameters,omitempty"`
 	// Custom data
 	// This block can contain arbitrary data, which will be returned in the callback.
 	CustomData map[string]string `json:"custom_data,omitempty"`
-}
-
-type DebitRequest struct {
-}
-
-func NewDebitRequest(order CheckoutOrder) *DebitRequest {
-	panic("unsupported")
-}
-
-type TransferRequest struct {
-}
-
-func NewTransferRequest(order CheckoutOrder) *TransferRequest {
-	panic("unsupported")
 }
 
 func (payload *rawCheckoutPayload) GenerateSignature(password string) string {
@@ -134,7 +116,7 @@ func (payload *rawCheckoutPayload) GenerateSignature(password string) string {
 	)
 	formater := strings.NewReplacer(
 		"{OrderNumber}", payload.Order.ID,
-		"{OrderAmount}", payload.Order.GetAmountString(),
+		"{OrderAmount}", payload.Order.Amount,
 		"{OrderCurrency}", payload.Order.Currency,
 		"{OrderDescription}", payload.Order.Description,
 		"{MerchantPassword}", password,
@@ -165,7 +147,7 @@ func (payload *rawCheckoutPayload) GenerateSignedRequest(conf *Config) (*http.Re
 	return req, nil
 }
 
-type CheckoutOrder struct {
+type rawOrder struct {
 	// Order ID
 	// max length: 255
 	// [a-z A-Z 0-9 -!"#$%&'()*+,./:;&@]
@@ -174,7 +156,7 @@ type CheckoutOrder struct {
 	// - Send Integer type value for currencies with zero-exponent.
 	// - Send Float type value for currencies with exponents 2, 3, 4.
 	// - For crypto currencies use the exponent as appropriate for the specific currency.
-	Amount decimal.Decimal `json:"amount"`
+	Amount string `json:"amount"`
 	// Currency
 	// 3 characters for fiat currencies and from 3 to 6 characters for crypto currencies
 	Currency string `json:"currency"`
@@ -182,67 +164,9 @@ type CheckoutOrder struct {
 	// min: 2 max: 1024
 	// [a-z A-Z 0-9 !"#$%&'()*+,./:;&@]
 	Description string `json:"description"`
-
-	stringifyAmount string
 }
 
-func (order *CheckoutOrder) Validate() error {
-	if order.ID == "" {
-		return errors.New("order ID is empty")
-	}
-	if order.Amount.LessThanOrEqual(decimal.Zero) {
-		return errors.New("order amount is invalid")
-	}
-
-	{
-		dec, supported := currencyDecimal[order.Currency]
-		if !supported {
-			return fmt.Errorf("unsupported currency: %s", order.Currency)
-		}
-		ser := order.Amount.StringFixed(dec)
-		de, _ := decimal.NewFromString(ser)
-		if !de.Equal(order.Amount) {
-			return fmt.Errorf("unsupported currency precision: %s: %d", order.Currency, dec)
-		}
-	}
-
-	return nil
-}
-
-func (order *CheckoutOrder) toRaw(conf *Config) *rawCheckoutPayload {
-	return &rawCheckoutPayload{
-		Operation:     OperationPurchase,
-		Order:         *order,
-		SessionExpiry: 30,
-		SuccessURL:    conf.SuccessURL,
-	}
-
-}
-
-func (order *CheckoutOrder) GetAmountString() string {
-	if order.stringifyAmount == "" {
-		order.stringifyAmount = order.Amount.StringFixed(getCurrencyPrecision(order.Currency))
-	}
-	return order.stringifyAmount
-}
-
-func (order *CheckoutOrder) MarshalJSON() ([]byte, error) {
-	raw := struct {
-		Number      string `json:"number"`
-		Amount      string `json:"amount"`
-		Currency    string `json:"currency"`
-		Description string `json:"description"`
-	}{
-		Number:      order.ID,
-		Amount:      order.GetAmountString(),
-		Currency:    order.Currency,
-		Description: order.Description,
-	}
-
-	return json.Marshal(raw)
-}
-
-type userInfo struct {
+type rawUserInfo struct {
 	// Customer's name
 	// Condition: If the parameter is NOT specified in the request, then it will be displayed on the Checkout page (if a payment method needs) - the "Cardholder" field
 	// min: 2 max: 32, Latin basic
@@ -252,10 +176,8 @@ type userInfo struct {
 	// min: 2 max: 255, email format
 	Email string `json:"email,omitempty"`
 }
-type CheckoutCustomer = userInfo
-type CheckoutPayee = userInfo
 
-type billingAddress struct {
+type rawBillingAddress struct {
 	// Billing country
 	// 2 characters, e.g. 'US'
 	Country string `json:"country"`
@@ -289,20 +211,18 @@ type billingAddress struct {
 	// e.g. 347771112233
 	Phone string `json:"phone"`
 }
-type CheckoutBillingAddress = billingAddress
-type CheckoutPayeeBillingAddress = billingAddress
 
-type CheckoutCrypto struct {
+type rawCryptoInfo struct {
 	// You can use an arbitrary value or select one from the following.
 	// ERC20, TRC20, BEP20, BEP2, OMNI, solana, polygon
 	Network string `json:"network"`
 }
 
-type CheckoutResponse struct {
+type rawCheckoutResponse struct {
 	RedirectURL string `json:"redirect_url"`
 }
 
-type CheckoutResponseError struct {
+type rawCheckoutResponseError struct {
 	ErrorCode    int    `json:"error_code"`
 	ErrorMessage string `json:"error_message"`
 	Errors       []struct {
@@ -320,14 +240,4 @@ var currencyDecimal = map[string]int32{
 	"BGN": 2, "CAD": 2, "CHF": 2, "CZK": 2, "DKK": 2, "HKD": 2, "HRK": 2, "HUF": 2, "IDR": 2, "ILS": 2, "JPY": 2, "KES": 2, "MXN": 2, "MYR": 2, "NGN": 2, "NOK": 2, "NZD": 2, "PHP": 2, "PLN": 2, "QAR": 2, "RON": 2, "RUB": 2, "SAR": 2, "SEK": 2, "SGD": 2, "THB": 2, "TRY": 2, "UGX": 2, "ZAR": 2,
 	"BHD": 3, "KWD": 3, "OMR": 3,
 	"VND": 0,
-}
-
-func getCurrencyPrecision(currency string, def ...int32) int32 {
-	if v, ok := currencyDecimal[currency]; ok {
-		return v
-	}
-	if len(def) > 0 {
-		return def[0]
-	}
-	return 2
 }
