@@ -18,15 +18,15 @@ var (
 type Env int
 
 const (
-	Env_DEV Env = iota
-	Env_PROD
+	EnvDev Env = iota
+	EnvProd
 )
 
 func (e Env) baseURL() *url.URL {
 	switch e {
-	case Env_DEV:
+	case EnvDev:
 		return _DEV_ENDPOINT
-	case Env_PROD:
+	case EnvProd:
 		return _PROD_ENDPOINT
 	default:
 		return _DEV_ENDPOINT
@@ -63,11 +63,11 @@ func NewClient(env Env, conf Config) (*Client, error) {
 }
 
 func NewDevClient(conf Config) (*Client, error) {
-	return NewClient(Env_DEV, conf)
+	return NewClient(EnvDev, conf)
 }
 
 func NewProdClient(conf Config) (*Client, error) {
-	return NewClient(Env_PROD, conf)
+	return NewClient(EnvProd, conf)
 }
 
 type DepositFormRequest struct {

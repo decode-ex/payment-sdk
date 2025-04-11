@@ -59,6 +59,14 @@ func NewClient(env Env, conf Config) (*Client, error) {
 	}, nil
 }
 
+func NewDevClient(conf Config) (*Client, error) {
+	return NewClient(EnvDev, conf)
+}
+
+func NewProdClient(conf Config) (*Client, error) {
+	return NewClient(EnvProd, conf)
+}
+
 func (c *Client) CreatePayInURL(ctx context.Context, in *PayInRequest) (*PayInResponse, error) {
 	raw, err := in.toRaw(c.config)
 	if err != nil {
