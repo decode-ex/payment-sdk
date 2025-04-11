@@ -27,13 +27,13 @@ type Client struct {
 	endpoint string
 }
 
-func NewClient(config Config) *Client {
+func NewClient(config Config) (*Client, error) {
 	sr := strings.ReplaceAll(_ENDPOINT_TEMPLATE, "{MerchantToken}", config.MerchantToken)
 
 	return &Client{
 		config:   &config,
 		endpoint: sr,
-	}
+	}, nil
 }
 
 type PaymentRequest struct {
