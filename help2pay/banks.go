@@ -242,8 +242,8 @@ type Bank struct {
 	Name string
 }
 
-var fiat_support_banks map[string]*Bank
-var currency_support_banks map[CurrencyCode][]string
+var fiat_support_banks = make(map[string]*Bank)
+var currency_support_banks = make(map[CurrencyCode][]string)
 
 func init() {
 	for code, name := range bankCodes {
