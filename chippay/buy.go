@@ -196,7 +196,9 @@ func (raw *rawBuyPayload) serializeToMap() map[string]string {
 	if raw.Total != "" {
 		params["total"] = raw.Total
 	}
-	params["orderPayChannel"] = strconv.Itoa(raw.OrderPayChannel)
+	if raw.OrderPayChannel != 0 {
+		params["orderPayChannel"] = strconv.Itoa(raw.OrderPayChannel)
+	}
 	if raw.DisplayUnitPrice != "" {
 		params["displayUnitPrice"] = raw.DisplayUnitPrice
 	}

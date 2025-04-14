@@ -46,6 +46,7 @@ type PaymentRequest struct {
 	CustomerLastName  string
 	CustomerPhone     string
 	CustomerEmail     string
+	CustomerCountry   string
 
 	Network string
 }
@@ -92,6 +93,7 @@ func (req *PaymentRequest) toRaw(conf *Config) *rawPaymentForm {
 		CustomerLastName:  req.CustomerLastName,
 		CustomerPhone:     req.CustomerPhone,
 		CustomerEmail:     req.CustomerEmail,
+		CustomerCountry:   req.CustomerCountry,
 		Network:           req.Network,
 	}
 	params := raw.toParams()

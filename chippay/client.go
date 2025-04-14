@@ -118,8 +118,9 @@ type BuyCoinRequest struct {
 	Amount   decimal.Decimal
 	Currency string
 
-	CustomerPhone string
-	CustomerName  string
+	CustomerAreaCode string
+	CustomerPhone    string
+	CustomerName     string
 }
 
 func (raw *BuyCoinRequest) Validate() error {
@@ -166,6 +167,7 @@ func (req *BuyCoinRequest) toRaw(conf *Config) *rawBuyPayload {
 		CompanyID:       conf.MerchantID,
 		KYCLevel:        "2",
 		UserName:        req.CustomerName,
+		AreaCode:        req.CustomerAreaCode,
 		Phone:           req.CustomerPhone,
 		OrderType:       OrderTypeBuy,
 		CompanyOrderNum: req.MerchantOrderID,
